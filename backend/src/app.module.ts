@@ -13,13 +13,13 @@ import * as dotenv from 'dotenv';
 import { resolve } from 'path';
 
 // Load root .env
-dotenv.config({ path: resolve(__dirname, '../../.env') });
+dotenv.config({ path: resolve(process.cwd(), '../.env') });
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: resolve(__dirname, '../../.env'),
+      envFilePath: resolve(process.cwd(), '../.env'),
     }),
     BullModule.forRoot({
       connection: {
