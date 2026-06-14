@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String          @id @default(uuid())
+  email     String          @unique
+  password  String
+  apiKey    String?         @unique @default(uuid())
+  accounts  TiktokAccount[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model TiktokAccount {
+  id             String          @id @default(uuid())
+  userId         String
+  username       String
+  status         AccountStatus   @default(OFFLINE)
+  webhookSetting WebhookSetting?
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([userId, username])
+}
+
+model WebhookSetting {
+  id          String        @id @default(uuid())
+  accountId   String        @unique
+  endpointUrl String
+  isEnabled   Boolean       @default(false)
+  secretKey   String
+  account     TiktokAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model WebhookLog {
+  id         String   @id @default(uuid())
+  accountId  String
+  endpoint   String
+  payload    Json
+  statusCode Int?
+  isSuccess  Boolean  @default(false)
+  errorMsg   String?  @db.Text
+  createdAt  DateTime @default(now())
+}
+
+enum AccountStatus {
+  ONLINE
+  OFFLINE
+  ERROR
+}

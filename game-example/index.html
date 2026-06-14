@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Live Game Prototype</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Socket.io Client -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <div id="ui-layer">
+        <h1>TikTok Live Interactive Game</h1>
+        <div id="setup-layer">
+            <p style="margin-bottom: 5px;">Enter TikTok Username and API Key:</p>
+            <input type="text" id="usernameInput" placeholder="TikTok Username (no @)" />
+            <input type="password" id="apiKeyInput" placeholder="Your API Key" />
+            <button id="connectBtn">Connect</button>
+        </div>
+        <div id="game-info" style="display: none;">
+            <p>Connected to TikTok Events via Socket.io</p>
+            <div id="status" class="disconnected">Disconnected</div>
+            <p class="instructions">Type <strong>"jump"</strong> in TikTok chat to make the character jump!<br>Send a <strong>Gift</strong> to drop items!</p>
+            <div id="event-log"></div>
+        </div>
+    </div>
+    
+    <canvas id="gameCanvas"></canvas>
+
+    <script src="game.js"></script>
+</body>
+</html>

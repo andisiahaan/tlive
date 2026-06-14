@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: tlive-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: tlive
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:alpine
+    container_name: tlive-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build:
+      context: ./backend
+    container_name: tlive-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=mysql://root:password@mysql:3306/tlive
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3001
+      - API_URL=http://localhost:3001
+      - JWT_SECRET=your-super-secret-key
+    depends_on:
+      - mysql
+      - redis
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: tlive-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+  redis_data:
