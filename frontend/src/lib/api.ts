@@ -12,5 +12,21 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+// Response interceptor to handle 401 Unauthorized globally
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        // Redirect to login page only if not already on it
+        if (window.location.pathname !== '/') {
+          window.location.href = '/';
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;
