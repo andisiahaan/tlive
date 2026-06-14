@@ -16,8 +16,8 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
   private connectionRefs: Map<string, { sse: number; sockets: number; webhooks: boolean }> = new Map();
 
   constructor(
-    private prisma: PrismaService,
-    @InjectQueue('webhooks') private webhooksQueue: Queue,
+    private readonly prisma: PrismaService,
+    @InjectQueue('webhooks') private readonly webhooksQueue: Queue,
   ) {}
 
   async onModuleInit() {
@@ -33,7 +33,9 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
     for (const [accountId, connection] of this.connections.entries()) {
       try {
         connection.disconnect();
-      } catch (e) {}
+      } catch (e) {
+        this.logger.error(`Error disconnecting account ${accountId} on destroy`, e instanceof Error ? e.message : String(e));
+      }
     }
   }
 
@@ -47,25 +49,33 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
   public addSseClient(accountId: string) {
     const refs = this.getRefs(accountId);
     refs.sse++;
-    this.evaluateConnection(accountId);
+    this.evaluateConnection(accountId).catch(err => {
+      this.logger.error(`Failed to evaluate connection for ${accountId}`, err instanceof Error ? err.message : String(err));
+    });
   }
 
   public removeSseClient(accountId: string) {
     const refs = this.getRefs(accountId);
     refs.sse = Math.max(0, refs.sse - 1);
-    this.evaluateConnection(accountId);
+    this.evaluateConnection(accountId).catch(err => {
+      this.logger.error(`Failed to evaluate connection for ${accountId}`, err instanceof Error ? err.message : String(err));
+    });
   }
 
   public addSocketClient(accountId: string) {
     const refs = this.getRefs(accountId);
     refs.sockets++;
-    this.evaluateConnection(accountId);
+    this.evaluateConnection(accountId).catch(err => {
+      this.logger.error(`Failed to evaluate connection for ${accountId}`, err instanceof Error ? err.message : String(err));
+    });
   }
 
   public removeSocketClient(accountId: string) {
     const refs = this.getRefs(accountId);
     refs.sockets = Math.max(0, refs.sockets - 1);
-    this.evaluateConnection(accountId);
+    this.evaluateConnection(accountId).catch(err => {
+      this.logger.error(`Failed to evaluate connection for ${accountId}`, err instanceof Error ? err.message : String(err));
+    });
   }
 
   public async evaluateConnection(accountId: string) {
@@ -88,23 +98,27 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
   }
 
   async syncConnections() {
-    const allAccounts = await this.prisma.tiktokAccount.findMany({
-      include: {
-        webhookSetting: true,
-      },
-    });
+    try {
+      const allAccounts = await this.prisma.tiktokAccount.findMany({
+        include: {
+          webhookSetting: true,
+        },
+      });
 
-    for (const account of allAccounts) {
-      const refs = this.getRefs(account.id);
-      refs.webhooks = account.webhookSetting?.isEnabled ?? false;
-      await this.evaluateConnection(account.id);
-    }
-
-    const activeAccountIds = new Set(allAccounts.map((a) => a.id));
-    for (const accountId of this.connections.keys()) {
-      if (!activeAccountIds.has(accountId)) {
-        this.disconnectAccount(accountId);
+      for (const account of allAccounts) {
+        const refs = this.getRefs(account.id);
+        refs.webhooks = account.webhookSetting?.isEnabled ?? false;
+        await this.evaluateConnection(account.id);
       }
+
+      const activeAccountIds = new Set(allAccounts.map((a) => a.id));
+      for (const accountId of this.connections.keys()) {
+        if (!activeAccountIds.has(accountId)) {
+          this.disconnectAccount(accountId);
+        }
+      }
+    } catch (error) {
+      this.logger.error('Failed to sync connections', error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -124,13 +138,13 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
 
     this.connections.set(account.id, tiktokConnection);
 
-    tiktokConnection.connect().then(async (state) => {
+    tiktokConnection.connect().then(async (state: any) => {
       this.logger.log(`Connected to room ${state.roomId} for ${account.username}`);
       await this.prisma.tiktokAccount.updateMany({
         where: { id: account.id },
         data: { status: 'ONLINE' }
       });
-    }).catch(async (err) => {
+    }).catch(async (err: any) => {
       this.logger.error(`Failed to connect to ${account.username}`, err);
       await this.prisma.tiktokAccount.updateMany({
         where: { id: account.id },
@@ -144,26 +158,36 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
     const eventsToListen = ['chat', 'gift', 'like', 'social', 'member', 'roomUser', 'envelope'];
     
     for (const event of eventsToListen) {
-      tiktokConnection.on(event, (data) => {
-        this.dispatchWebhook(account, event, data);
+      tiktokConnection.on(event, (data: any) => {
+        this.dispatchWebhook(account, event, data).catch(err => {
+           this.logger.error(`Failed to dispatch webhook for ${account.username}`, err instanceof Error ? err.message : String(err));
+        });
       });
     }
 
     tiktokConnection.on('streamEnd', async () => {
       this.logger.log(`Stream ended for ${account.username}`);
-      await this.prisma.tiktokAccount.updateMany({
-        where: { id: account.id },
-        data: { status: 'OFFLINE' }
-      });
+      try {
+        await this.prisma.tiktokAccount.updateMany({
+          where: { id: account.id },
+          data: { status: 'OFFLINE' }
+        });
+      } catch (err) {
+        this.logger.error(`Error updating stream status offline for ${account.id}`, err instanceof Error ? err.message : String(err));
+      }
       this.disconnectAccount(account.id);
     });
 
     tiktokConnection.on('disconnected', async () => {
       this.logger.log(`Disconnected from ${account.username}`);
-      await this.prisma.tiktokAccount.updateMany({
-        where: { id: account.id },
-        data: { status: 'OFFLINE' }
-      });
+      try {
+        await this.prisma.tiktokAccount.updateMany({
+          where: { id: account.id },
+          data: { status: 'OFFLINE' }
+        });
+      } catch (err) {
+        this.logger.error(`Error updating stream status disconnected for ${account.id}`, err instanceof Error ? err.message : String(err));
+      }
       this.disconnectAccount(account.id);
     });
   }
@@ -173,7 +197,9 @@ export class TiktokService implements OnModuleInit, OnModuleDestroy {
     if (connection) {
       try {
         connection.disconnect();
-      } catch (e) {}
+      } catch (e) {
+        this.logger.error(`Error during explicit disconnect for ${accountId}`, e instanceof Error ? e.message : String(e));
+      }
       this.connections.delete(accountId);
       this.logger.log(`Disconnected account ${accountId} locally.`);
     }

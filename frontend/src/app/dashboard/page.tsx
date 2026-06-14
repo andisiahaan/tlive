@@ -11,11 +11,29 @@ export default function DashboardPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [editingWebhook, setEditingWebhook] = useState<string | null>(null);
 
+  // Global messages
+  const [globalError, setGlobalError] = useState('');
+  const [globalSuccess, setGlobalSuccess] = useState('');
+
   // Webhook form states
   const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookSecret, setWebhookSecret] = useState('');
   const [webhookEnabled, setWebhookEnabled] = useState(false);
   const [webhookSaving, setWebhookSaving] = useState(false);
+
+  const showMessage = (msg: string, isError: boolean = false) => {
+    if (isError) {
+      setGlobalError(msg);
+      setGlobalSuccess('');
+    } else {
+      setGlobalSuccess(msg);
+      setGlobalError('');
+    }
+    setTimeout(() => {
+      setGlobalError('');
+      setGlobalSuccess('');
+    }, 5000);
+  };
 
   const fetchAccounts = async () => {
     try {
@@ -42,8 +60,9 @@ export default function DashboardPage() {
     try {
       const res = await api.post('/accounts/profile/apikey');
       setProfile((prev: any) => ({ ...prev, apiKey: res.data.apiKey }));
-    } catch (err) {
-      alert('Failed to generate API Key');
+      showMessage('API Key regenerated successfully');
+    } catch (err: any) {
+      showMessage(err.response?.data?.message || 'Failed to generate API Key', true);
     }
   };
 
@@ -62,8 +81,9 @@ export default function DashboardPage() {
       await api.post('/accounts', { username: newUsername });
       setNewUsername('');
       await fetchAccounts();
-    } catch (err) {
-      alert('Failed to add account');
+      showMessage('Account added successfully');
+    } catch (err: any) {
+      showMessage(err.response?.data?.message || 'Failed to add account', true);
     } finally {
       setIsAdding(false);
     }
@@ -74,8 +94,9 @@ export default function DashboardPage() {
     try {
       await api.delete(`/accounts/${id}`);
       await fetchAccounts();
-    } catch (err) {
-      alert('Failed to delete account');
+      showMessage('Account deleted successfully');
+    } catch (err: any) {
+      showMessage(err.response?.data?.message || 'Failed to delete account', true);
     }
   };
 
@@ -98,8 +119,9 @@ export default function DashboardPage() {
       });
       await fetchAccounts();
       setEditingWebhook(null);
-    } catch (err) {
-      alert('Failed to save webhook settings');
+      showMessage('Webhook settings saved successfully');
+    } catch (err: any) {
+      showMessage(err.response?.data?.message || 'Failed to save webhook settings', true);
     } finally {
       setWebhookSaving(false);
     }
@@ -107,6 +129,13 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* Global Alerts */}
+      {(globalError || globalSuccess) && (
+        <div className={`p-4 rounded-lg text-sm font-medium border ${globalError ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-green-500/10 border-green-500/20 text-green-400'}`}>
+          {globalError || globalSuccess}
+        </div>
+      )}
+
       <div className="flex justify-between items-center bg-gray-900 p-6 rounded-2xl border border-gray-800">
         <div>
           <h2 className="text-2xl font-bold text-white">Your Tiktok Accounts</h2>

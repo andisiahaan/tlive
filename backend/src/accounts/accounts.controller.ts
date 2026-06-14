@@ -4,6 +4,11 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TiktokService } from '../tiktok/tiktok.service';
 import { Observable } from 'rxjs';
 import { filter, map } from 'rxjs/operators';
+import { AddAccountDto, SetWebhookDto } from './dto/accounts.dto';
+
+interface RequestWithUser extends Request {
+  user: { id: string; email: string };
+}
 
 @UseGuards(JwtAuthGuard)
 @Controller('accounts')
@@ -14,35 +19,35 @@ export class AccountsController {
   ) {}
 
   @Get()
-  async getAccounts(@Request() req: any) {
+  async getAccounts(@Request() req: RequestWithUser) {
     return this.accountsService.getAccounts(req.user.id);
   }
 
   @Get('profile')
-  async getProfile(@Request() req: any) {
+  async getProfile(@Request() req: RequestWithUser) {
     return this.accountsService.getProfile(req.user.id);
   }
 
   @Post('profile/apikey')
-  async regenerateApiKey(@Request() req: any) {
+  async regenerateApiKey(@Request() req: RequestWithUser) {
     return this.accountsService.regenerateApiKey(req.user.id);
   }
 
   @Post()
-  async addAccount(@Request() req: any, @Body() body: { username: string }) {
+  async addAccount(@Request() req: RequestWithUser, @Body() body: AddAccountDto) {
     return this.accountsService.addAccount(req.user.id, body.username);
   }
 
   @Delete(':id')
-  async deleteAccount(@Request() req: any, @Param('id') id: string) {
+  async deleteAccount(@Request() req: RequestWithUser, @Param('id') id: string) {
     return this.accountsService.deleteAccount(req.user.id, id);
   }
 
   @Post(':id/webhook')
   async setWebhook(
-    @Request() req: any,
+    @Request() req: RequestWithUser,
     @Param('id') accountId: string,
-    @Body() body: { endpointUrl: string; secretKey: string; isEnabled: boolean }
+    @Body() body: SetWebhookDto
   ) {
     return this.accountsService.setWebhook(
       req.user.id,
@@ -54,7 +59,7 @@ export class AccountsController {
   }
 
   @Sse(':id/events')
-  events(@Request() req: any, @Param('id') id: string): Observable<MessageEvent> {
+  events(@Request() req: RequestWithUser, @Param('id') id: string): Observable<MessageEvent> {
     this.tiktokService.addSseClient(id);
 
     return new Observable<MessageEvent>((subscriber) => {
