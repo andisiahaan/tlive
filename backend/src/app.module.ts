@@ -21,12 +21,16 @@ dotenv.config({ path: resolve(process.cwd(), '../.env') });
       isGlobal: true,
       envFilePath: resolve(process.cwd(), '../.env'),
     }),
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST || '127.0.0.1',
-        port: parseInt(process.env.REDIS_PORT || '6379', 10),
-        password: process.env.REDIS_PASSWORD || undefined,
-      },
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        connection: {
+          host: configService.get<string>('REDIS_HOST') || '127.0.0.1',
+          port: parseInt(configService.get<string>('REDIS_PORT') || '6379', 10),
+          password: configService.get<string>('REDIS_PASSWORD') || undefined,
+        },
+      }),
     }),
     PrismaModule,
     AuthModule,
