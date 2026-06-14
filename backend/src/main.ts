@@ -5,8 +5,10 @@ import { resolve } from 'path';
 import { ValidationPipe } from '@nestjs/common';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 
-// Load root .env
+// Load root .env (for local dev)
 dotenv.config({ path: resolve(process.cwd(), '../.env') });
+// Load local .env (for standalone backend deployment in production)
+dotenv.config({ path: resolve(process.cwd(), '.env') });
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -18,8 +20,10 @@ async function bootstrap() {
   app.useGlobalFilters(new GlobalExceptionFilter());
 
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const allowedOrigins = frontendUrl.split(',').map(url => url.trim().replace(/\/$/, ''));
+
   app.enableCors({
-    origin: frontendUrl,
+    origin: allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
